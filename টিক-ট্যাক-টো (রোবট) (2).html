@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>টিক-ট্যাক-টো (রোবট)</title>
+<style>
+:root{--bg1:#eef2ff;--bg2:#e0e7ff;--card:rgba(255,255,255,.85);--text:#1b2130;--muted:#5b6478;--line:#dbe1f0;--x:#ef4444;--o:#3b82f6;--accent:#6366f1;--shadow:0 10px 30px rgba(60,70,130,.15);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg1:#0d1020;--bg2:#171b36;--card:rgba(30,35,64,.85);--text:#eef1f8;--muted:#a3abc4;--line:#2e3558;--x:#ff7a7f;--o:#7aa7ff;--accent:#818cf8;--shadow:0 10px 30px rgba(0,0,0,.4)}}
+:root[data-theme="dark"]{--bg1:#0d1020;--bg2:#171b36;--card:rgba(30,35,64,.85);--text:#eef1f8;--muted:#a3abc4;--line:#2e3558;--x:#ff7a7f;--o:#7aa7ff;--accent:#818cf8;--shadow:0 10px 30px rgba(0,0,0,.4)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;background:linear-gradient(160deg,var(--bg1),var(--bg2));color:var(--text);font-family:"Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:22px 16px}
+h1{font-size:1.7rem;margin:6px 0 2px;letter-spacing:.3px}
+.sub{color:var(--muted);font-size:.95rem;margin-bottom:16px;text-align:center}
+.prize{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-weight:600;padding:10px 20px;border-radius:14px;margin-bottom:16px;text-align:center;box-shadow:var(--shadow);animation:glow 1.6s ease-in-out infinite}
+.prize b{font-size:1.25rem}
+@keyframes glow{50%{transform:scale(1.04)}}
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(92vw,360px);margin-bottom:16px}
+.score div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 6px;text-align:center;font-size:.8rem;color:var(--muted);box-shadow:var(--shadow)}
+.score b{display:block;font-size:1.5rem;color:var(--text);margin-top:2px}
+#status{font-size:1.1rem;font-weight:600;min-height:2.4em;margin-bottom:10px;text-align:center;padding:8px 18px;border-radius:999px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);display:flex;align-items:center}
+#board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:min(92vw,360px);aspect-ratio:1;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+.cell{background:var(--bg1);border:2px solid var(--line);border-radius:16px;font-size:3.2rem;font-weight:800;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0;transition:transform .12s,background .2s}
+.cell:not(:disabled):active{transform:scale(.94)}
+.cell.X{color:var(--x)}.cell.O{color:var(--o)}
+.cell.pop{animation:pop .25s ease-out}
+@keyframes pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+.cell.win{background:var(--accent);border-color:var(--accent);color:#fff;animation:pulse .7s ease-in-out 3}
+@keyframes pulse{50%{transform:scale(1.08)}}
+.cell:disabled{cursor:default}
+button.reset{margin-top:20px;background:var(--accent);color:#fff;border:0;border-radius:14px;padding:13px 34px;font-size:1.05rem;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:var(--shadow)}
+button.reset:active{transform:scale(.97)}
+</style>
+</head>
+<body>
+<h1>❌ টিক-ট্যাক-টো ⭕</h1>
+<div class="sub">রোবট (✕) সবসময় প্রথমে খেলে। আপনি (◯)।</div>
+<div class="prize">🏆 রোবটকে হারাতে পারলে <b>১০০ টাকা</b> পুরস্কার! 💰</div>
+<div class="score">
+  <div>🤖 রোবট<b id="sr">0</b></div>
+  <div>🤝 ড্র<b id="sd">0</b></div>
+  <div>😎 আপনি<b id="sp">0</b></div>
+</div>
+<div id="status"></div>
+<div id="board"></div>
+<button class="reset" id="reset">🔄 নতুন খেলা</button>
+
+<script>
+const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+let b,over,sc={r:0,d:0,p:0};
+const boardEl=document.getElementById('board'),st=document.getElementById('status');
+const cells=[];
+for(let i=0;i<9;i++){const c=document.createElement('button');c.className='cell';c.onclick=()=>play(i);boardEl.appendChild(c);cells.push(c)}
+
+function winner(s){for(const l of L){if(s[l[0]]&&s[l[0]]===s[l[1]]&&s[l[0]]===s[l[2]])return{w:s[l[0]],l}}return null}
+function minimax(s,turn,depth,a,bt){
+  const w=winner(s);
+  if(w)return w.w==='X'?10-depth:depth-10;
+  if(s.every(Boolean))return 0;
+  if(turn==='X'){let best=-99;for(let i=0;i<9;i++)if(!s[i]){s[i]='X';best=Math.max(best,minimax(s,'O',depth+1,a,bt));s[i]=null;a=Math.max(a,best);if(bt<=a)break}return best}
+  else{let best=99;for(let i=0;i<9;i++)if(!s[i]){s[i]='O';best=Math.min(best,minimax(s,'X',depth+1,a,bt));s[i]=null;bt=Math.min(bt,best);if(bt<=a)break}return best}
+}
+function robotMove(){
+  let best=-99,opts=[];
+  for(let i=0;i<9;i++)if(!b[i]){b[i]='X';const v=minimax(b,'O',1,-99,99);b[i]=null;if(v>best){best=v;opts=[i]}else if(v===best)opts.push(i)}
+  const mv=opts[Math.floor(Math.random()*opts.length)];
+  b[mv]='X';render(mv);check();
+}
+function render(last){b.forEach((v,i)=>{cells[i].textContent=v==='X'?'✕':v==='O'?'◯':'';cells[i].className='cell'+(v?' '+v:'')+(i===last?' pop':'');cells[i].disabled=!!v||over})}
+function check(){
+  const w=winner(b);
+  if(w){over=true;w.l.forEach(i=>cells[i].classList.add('win'));
+    if(w.w==='X'){sc.r++;st.textContent='🤖 রোবট জিতেছে!'}else{sc.p++;st.textContent='😎 আপনি জিতেছেন!'}
+  }else if(b.every(Boolean)){over=true;sc.d++;st.textContent='🤝 ড্র হয়েছে!'}
+  else st.textContent='👉 আপনার পালা (◯)';
+  document.getElementById('sr').textContent=sc.r;document.getElementById('sd').textContent=sc.d;document.getElementById('sp').textContent=sc.p;
+  cells.forEach((c,i)=>c.disabled=!!b[i]||over);
+}
+function play(i){
+  if(over||b[i])return;
+  b[i]='O';render(i);check();
+  if(!over){st.textContent='🤖 রোবট ভাবছে...';setTimeout(robotMove,400)}
+}
+function start(){
+  b=Array(9).fill(null);over=false;render();
+  st.textContent='🤖 রোবট ভাবছে...';
+  setTimeout(robotMove,450);
+}
+document.getElementById('reset').onclick=start;
+start();
+</script>
+</body>
+</html>
